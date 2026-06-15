@@ -2,21 +2,17 @@
 /* jshint esversion: 6 */
 
 // JSLint options:
-/*jslint for*/
-/*jslint long*/
-/*jslint unordered*/
-/*jslint single*/
-/*jslint browser, devel, white, for, unordered */
+/*jslint browser, devel, white, for, long, unordered, single */
+
 //
 // Note: workaround for jslint
-/*global chrome*/
-/*global console*/
+/*global chrome, $*/
 
-var window = null;
+var windowId = null;
 var tabObj = null;
 
 function updateTab(id, property, value) {
-    search = $('.highlight').attr('data-search');
+    var search = $('.highlight').attr('data-search');
     value = !value;
     chrome.tabs.update(id, {[property]: value});
     $('.highlight').data(property, value);
@@ -37,11 +33,11 @@ function updateTab(id, property, value) {
 function drawTabs() {
     $('#content').html('');
     chrome.windows.getAll({populate:true},function(windows){
-        var tabData = [];
+        var windowsArray = [];
         windows.forEach(function(window){
-            tabData[window.id] = {id: window.id, incognito: window.incognito, tabs: []};
+            var winData = {id: window.id, incognito: window.incognito, tabs: []};
             window.tabs.forEach(function(tab){
-                tabData[tab.windowId].tabs.push({
+                winData.tabs.push({
                     id: tab.id,
                     title: tab.title,
                     url: tab.url,
@@ -53,64 +49,43 @@ function drawTabs() {
                     incognito: tab.incognito
                 });
             });
+            windowsArray.push(winData);
         });
-        var html = '';
-	//
-	// Show cases with multiple tabs
-	var num_multiple_tabs = 0;
-	html = "Windows with multiple tabs<br>\n";
-	for (window in tabData) {
-	    try {
-		console.log('Current window key: ', window, '; value: ', tabData[window]);
-		if (tabData[window] && tabData[window].tabs && (tabData[window].tabs.length > 1)) {
-		    html += window.toString();
-		    for(var tabObj in tabData[window].tabs) {
-			var tab = tabData[window].tabs[tabObj];
-			html += "\t" + tab.title + "\n";
-		    }
-		}
-	    }
-	    catch (exc) {
-		console.warn("Exception in drawTabs: " + exc);
-	    }
-	}
-	if (num_multiple_tabs == 0) {
-	    html += "\t" + "n/a" + "<br>\n";
-	}
-	html += "<br>\n";
-	//
-	// Show the complete list of windows and their tabs
-	//
-        for (window in tabData) {
-            // OLD: var incog = (tabData[window].incognito) ? ' incognito' : '';
-	    var incog = '???';
-	    try {
-		console.debug("win-key: " + window + "; val: " + tabData[window] + "; incog:" + tabData[window].incognito);
-		incog = ((tabData[window] && tabData[window].incognito) ? ' incognito' : '');
-		html += '<div class="window'+ incog +'" data-window-id="' + window +'">';
-		html += '<div class="toggle"><img src="assets/trash.png" class="close_window" data-tab-count="'+ tabData[window].tabs.length +'" data-window-id="' + window +'" alt="" /><span class="count">'+ tabData[window].tabs.length +'</span> tabs</div><ul>';
-		for (tabObj in tabData[window].tabs) {
-                    // TODO: var tab...
-		    tab = tabData[window].tabs[tabObj];
-                    var modifiers = '';
-                    modifiers += (tab.audio) ? ' _audio' : '';
-                    modifiers += (tab.muted) ? ' _muted' : '';
-                    modifiers += (tab.pinned) ? ' _pinned' : '';
-                    modifiers += (tab.highlighted) ? ' _highlighted' : '';
-                    modifiers += (tab.incognito) ? ' _incognito' : '';
-                    html += '<li class="tab'+ modifiers +'" data-window-id="'+ window +'" data-tab-id="'+ tab.id +'" data-muted="'+ tab.muted +'" data-pinned="'+ tab.pinned +'" data-search="'+ tab.title.toLowerCase() +' '+ tab.url.toLowerCase() + modifiers +'">'
-			+ '<span class="icon"><span style="background-image:url('+ tab.icon +');"></span></span>'
-			+ '<span class="title">'+ tab.title +'</span>'
-			+ '<span class="url">'+ tab.url +'</span>'
-			+ '<img src="assets/close.png" class="close_tab" data-tab-id="'+ tab.id +'" data-tab-name="'+ tab.title +'" alt="" />'
-			+ '</li>';
-		}
-	    }
-	    catch (exc) {
-		console.warn("Exception in drawTabs: " + exc);
+
+        // Sort windows: multiple tabs first, then by number of tabs descending
+        windowsArray.sort(function(a, b) {
+            if (a.tabs.length > 1 && b.tabs.length <= 1) {
+                return -1;
             }
+            if (a.tabs.length <= 1 && b.tabs.length > 1) {
+                return 1;
+            }
+            return b.tabs.length - a.tabs.length;
+        });
+
+        var html = '';
+        windowsArray.forEach(function(winData) {
+            var windowId = winData.id;
+            var incog = (winData.incognito ? ' incognito' : '');
+            html += '<div class="window'+ incog +'" data-window-id="' + windowId +'">';
+            html += '<div class="toggle"><img src="assets/trash.png" class="close_window" data-tab-count="'+ winData.tabs.length +'" data-window-id="' + windowId +'" alt="" /><span class="count">'+ winData.tabs.length +'</span> tabs</div><ul>';
+            winData.tabs.forEach(function(tab) {
+                var modifiers = '';
+                modifiers += (tab.audio) ? ' _audio' : '';
+                modifiers += (tab.muted) ? ' _muted' : '';
+                modifiers += (tab.pinned) ? ' _pinned' : '';
+                modifiers += (tab.highlighted) ? ' _highlighted' : '';
+                modifiers += (tab.incognito) ? ' _incognito' : '';
+                html += '<li class="tab'+ modifiers +'" data-window-id="'+ windowId +'" data-tab-id="'+ tab.id +'" data-muted="'+ tab.muted +'" data-pinned="'+ tab.pinned +'" data-search="'+ tab.title.toLowerCase() +' '+ tab.url.toLowerCase() + modifiers +'">'
+                    + '<span class="icon"><span style="background-image:url('+ tab.icon +');"></span></span>'
+                    + '<span class="title">'+ tab.title +'</span>'
+                    + '<span class="url">'+ tab.url +'</span>'
+                    + '<img src="assets/close.png" class="close_tab" data-tab-id="'+ tab.id +'" data-tab-name="'+ tab.title +'" alt="" />'
+                    + '</li>';
+            });
             html += '</ul></div>';
-        }
+        });
+
         console.debug(`html: \n${html}\n`);
         $('#content').html(html);
     });
