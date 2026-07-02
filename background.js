@@ -65,6 +65,7 @@ chrome.tabs.onRemoved.addListener(function(tabId){
 });
 
 chrome.action.onClicked.addListener(function() {
+    console.log(`action.onClicked`);
     chrome.tabs.create({
         url: chrome.runtime.getURL("popup.htm")
     });
