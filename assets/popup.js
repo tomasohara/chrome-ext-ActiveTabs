@@ -1,3 +1,8 @@
+// Form support for Active-Tabs chrome extension
+//
+// note:
+// - The display now uses a full page, so popup[.js] is a misnomer.
+
 // JSHint options:
 /* jshint esversion: 6 */
 
