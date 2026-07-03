@@ -2,7 +2,8 @@
 //
 // note:
 // - The display now uses a full page, so popup[.js] is a misnomer.
-
+// - Change via Gemini to sort the tabs, use full window, are position modal.
+//
 // JSHint options:
 /* jshint esversion: 6 */
 
