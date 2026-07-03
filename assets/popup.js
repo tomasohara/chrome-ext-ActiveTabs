@@ -283,13 +283,8 @@ $(function(){
             $('.modal-overlay').remove();
         });
 
-        $(window).resize();
+
     });
 
-    $(window).resize(function() {
-        $('.modal-box').css({
-            top: ($(window).height() - $('.modal-box').outerHeight()) / 2,
-            left: ($(window).width() - $('.modal-box').outerWidth()) / 2
-        });
-    });
+
 });
