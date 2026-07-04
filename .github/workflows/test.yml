@@ -1,0 +1,25 @@
+name: UI Tests
+
+on:
+  push:
+    branches: [ master, development, '*' ]
+  pull_request:
+    branches: [ master, development ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+
+    - name: Install dependencies
+      run: npm install puppeteer tesseract.js
+
+    - name: Run Puppeteer OCR Test
+      run: node test_popup.js

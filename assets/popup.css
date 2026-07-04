@@ -209,9 +209,9 @@ li.tab.hide {
 	box-shadow: 0 3px 9px rgba(0, 0, 0, 0.5);
 	border: 1px solid rgba(0, 0, 0, 0.1);
 	background-clip: padding-box;
-	/* NOTE: Added max-height and overflow to safely scroll tall popups and avoid clipping */
+	/* NOTE: Added max-height and hidden overflow to safely scroll tall popups (in modal-body) and avoid clipping */
 	max-height: 80vh;
-	overflow-y: auto;
+	overflow: hidden;
 }
 
 .modal-box { width: 70%; }
@@ -228,7 +228,11 @@ li.tab.hide {
 .modal-box .modal-header h3,
 .modal-box .modal-header h4 { margin: 0; }
 
-.modal-box .modal-body { padding: 2em 1.5em; }
+.modal-box .modal-body {
+	padding: 2em 1.5em;
+	max-height: 50vh;
+	overflow-y: auto;
+}
 
 .modal-box footer,
 .modal-box .modal-footer {
