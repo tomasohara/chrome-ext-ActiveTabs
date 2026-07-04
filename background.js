@@ -8,16 +8,12 @@
  */
 
 // JSHint options:
-/* jshint esversion: 6 */
+/* jshint esversion: 6, browser: true, devel: true */
 
 // JSLint options:
-/*jslint browser, devel, white, for, long, unordered */
-
-//
+/*jslint browser, devel, node, trace, beta, bitwise, convert, eval, fart, for, getset, indent2, nomen, single, subscript, long, this, unordered, variable, white */
 // Note: workaround for jslint
-/*global chrome*/
-/*global console*/
-
+/*global chrome, console*/
 
 var countTabs = function() {
     console.log("in countTabs");
