@@ -209,7 +209,8 @@ li.tab.hide {
 	box-shadow: 0 3px 9px rgba(0, 0, 0, 0.5);
 	border: 1px solid rgba(0, 0, 0, 0.1);
 	background-clip: padding-box;
-	/* NOTE: Added max-height and hidden overflow to safely scroll tall popups (in modal-body) and avoid clipping */
+	/* Ensure the entire modal box never exceeds the viewport bounds, preventing off-screen clipping. */
+	/* note: inner .modal-body will scroll if the content is too large. */
 	max-height: 80vh;
 	overflow: hidden;
 }
@@ -230,6 +231,8 @@ li.tab.hide {
 
 .modal-box .modal-body {
 	padding: 2em 1.5em;
+	/* Restrict the body size so the header and footer remain pinned in view, 
+	   guaranteeing action buttons (like Close) are always accessible. */
 	max-height: 50vh;
 	overflow-y: auto;
 }
@@ -305,12 +308,13 @@ li.tab.hide {
 		background-color:#468ccf;
 	}
 
+/* Ensure the help popup behaves consistently with other modals by letting 
+   the default .modal-box centering rules govern its position. */
 /* OLD:
 #help {
 	top: 40px!important;
 }
 */
-/* NOTE: Removed explicit top/transform rules to let #help center dynamically via .modal-box */
 
 
 

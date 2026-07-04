@@ -145,10 +145,13 @@ function highlightTab(next) {
 
 function focusTab(el) {
     if (el && el.data) {
+        // Guarantee we pass a strict integer to the Chrome API, preventing a signature mismatch TypeError.
+        // note: 'selected' is deprecated in favor of 'active'
         // BAD: chrome.tabs.update(el.data('tab-id'), {selected: true});
         chrome.tabs.update(parseInt(el.data('tab-id'), 10), {active: true});
         // OLD: chrome.windows.update(el.data('window-id'), {focused: true});
         try {
+            // Guarantee we pass a strict integer for the windowId to avoid throwing a type mismatch exception.
             // BAD: chrome.windows.update(el.data('window-id'), {focused: true});
             chrome.windows.update(parseInt(el.data('window-id'), 10), {focused: true});
         }
@@ -290,9 +293,11 @@ $(function(){
             $('.modal-overlay').remove();
         });
 
+        // Rely completely on CSS for dynamic viewport centering rather than manual calculation.
         // OLD: $(window).resize();
     });
 
+    // Remove JS-based centering; CSS transforms in .modal-box now robustly handle responsive positioning.
     // OLD: $(window).resize(function() {
     // OLD:     $('.modal-box').css({
     // OLD:         top: ($(window).height() - $('.modal-box').outerHeight()) / 2,
