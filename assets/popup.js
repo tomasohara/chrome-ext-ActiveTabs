@@ -2,24 +2,25 @@
 //
 // note:
 // - The display now uses a full page, so popup[.js] is a misnomer.
-//
-// Change facilitated by Antigravity AI Assistant using model Gemini 3.1 Pro (High):
+// - UPDATE 04 July 2026: Reworked change comments
+// - Change facilitated by Antigravity AI Assistant using model Gemini 3.1 Pro
 // - Fixed TypeError in focusTab by parsing IDs as integers.
 // - Removed jQuery resize modal positioning logic to rely on modern CSS.
 // - Change via Gemini to sort the tabs, use full window, are position modal.
 //
+//
+
 // JSHint options:
-/* jshint esversion: 6 */
+/* jshint esversion: 6, browser: true, devel: true */
 
 // JSLint options:
-/*jslint browser, devel, white, for, long, unordered, single */
-
-//
+/*jslint browser, devel, node, trace, beta, bitwise, convert, eval, fart, for, getset, indent2, nomen, single, subscript, long, this, unordered, variable, white */
 // Note: workaround for jslint
-/*global chrome, $*/
+/*global chrome, console*/
 
-var windowId = null;
-var tabObj = null;
+// OLD:
+// var windowId = null;
+// var tabObj = null;
 
 function updateTab(id, property, value) {
     var search = $('.highlight').attr('data-search');
@@ -96,7 +97,7 @@ function drawTabs() {
             html += '</ul></div>';
         });
 
-        console.debug(`html: \n${html}\n`);
+        // DEBUG: console.debug(`html: \n${html}\n`);
         $('#content').html(html);
     });
 }
@@ -106,7 +107,9 @@ function close_type(obj) {
     if(obj.type == 'tab') {
         chrome.tabs.get(obj.id, function callback() {
             if (chrome.runtime.lastError) {
-                //console.log(chrome.runtime.lastError.message);
+		// OLD: //console.log(chrome.runtime.lastError.message);
+                // DEBUG:
+		console.log("lastError:" + chrome.runtime.lastError.message);
             } else {
                 chrome.tabs.remove(obj.id);
             }
@@ -114,7 +117,9 @@ function close_type(obj) {
     } else if (obj.type == 'window') {
         chrome.windows.get(obj.id, function callback() {
             if (chrome.runtime.lastError) {
-                //console.log(chrome.runtime.lastError.message);
+		// OLD: //console.log(chrome.runtime.lastError.message);		
+                // DEBUG:
+		console.log("lastError:" + chrome.runtime.lastError.message);
             } else {
                 chrome.windows.remove(obj.id);
             }
@@ -145,6 +150,8 @@ function highlightTab(next) {
 
 function focusTab(el) {
     if (el && el.data) {
+	// DEBUG:
+	console.debug("focusTab: el.data=" + focusTab);
         // Guarantee we pass a strict integer to the Chrome API, preventing a signature mismatch TypeError.
         // note: 'selected' is deprecated in favor of 'active'
         // BAD: chrome.tabs.update(el.data('tab-id'), {selected: true});
@@ -157,6 +164,8 @@ function focusTab(el) {
         }
         catch (exc) {
             console.warn("Exception in focusTab: " + exc);
+	    // DEBUG:
+            console.warn("el.data: " + JSON.stringify(el.data));
         }
     }
 }
@@ -198,7 +207,8 @@ $('.search').on('keyup', function(){
 });
 
 $('body').on('keydown', function(e){
-    //console.log(e.keyCode);
+    // OLD: //console.log(e.keyCode);
+    // DEBUG: console.log("keyCode:" + e.keyCode);
     $('#help .js-modal-close, .modal-overlay').click();
     if($.inArray(e.keyCode, [13, 38, 40, 67, 77, 80, 83, 88, 191]) !== -1) {
         switch(e.keyCode) {
