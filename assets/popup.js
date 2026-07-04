@@ -2,6 +2,10 @@
 //
 // note:
 // - The display now uses a full page, so popup[.js] is a misnomer.
+//
+// Change facilitated by Antigravity AI Assistant using model Gemini 3.1 Pro (High):
+// - Fixed TypeError in focusTab by parsing IDs as integers.
+// - Removed jQuery resize modal positioning logic to rely on modern CSS.
 // - Change via Gemini to sort the tabs, use full window, are position modal.
 //
 // JSHint options:
@@ -141,10 +145,12 @@ function highlightTab(next) {
 
 function focusTab(el) {
     if (el && el.data) {
-        chrome.tabs.update(el.data('tab-id'), {selected: true});
+        // BAD: chrome.tabs.update(el.data('tab-id'), {selected: true});
+        chrome.tabs.update(parseInt(el.data('tab-id'), 10), {active: true});
         // OLD: chrome.windows.update(el.data('window-id'), {focused: true});
         try {
-            chrome.windows.update(el.data('window-id'), {focused: true});
+            // BAD: chrome.windows.update(el.data('window-id'), {focused: true});
+            chrome.windows.update(parseInt(el.data('window-id'), 10), {focused: true});
         }
         catch (exc) {
             console.warn("Exception in focusTab: " + exc);
@@ -284,8 +290,13 @@ $(function(){
             $('.modal-overlay').remove();
         });
 
-
+        // OLD: $(window).resize();
     });
 
-
+    // OLD: $(window).resize(function() {
+    // OLD:     $('.modal-box').css({
+    // OLD:         top: ($(window).height() - $('.modal-box').outerHeight()) / 2,
+    // OLD:         left: ($(window).width() - $('.modal-box').outerWidth()) / 2
+    // OLD:     });
+    // OLD: });
 });

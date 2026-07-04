@@ -1,4 +1,7 @@
 body {
+	/* Change facilitated by Antigravity AI Assistant using model Gemini 3.1 Pro (High):
+	   - Switched to CSS transform for .modal-box centering.
+	   - Removed explicit #help position rules to avoid clipping. */
 	min-width: 550px;
 	max-width: 550px;
 	-webkit-touch-callout: none;
@@ -206,6 +209,9 @@ li.tab.hide {
 	box-shadow: 0 3px 9px rgba(0, 0, 0, 0.5);
 	border: 1px solid rgba(0, 0, 0, 0.1);
 	background-clip: padding-box;
+	/* NOTE: Added max-height and overflow to safely scroll tall popups and avoid clipping */
+	max-height: 80vh;
+	overflow-y: auto;
 }
 
 .modal-box { width: 70%; }
@@ -295,9 +301,14 @@ li.tab.hide {
 		background-color:#468ccf;
 	}
 
+/* OLD:
 #help {
 	top: 40px!important;
 }
+*/
+/* NOTE: Removed explicit top/transform rules to let #help center dynamically via .modal-box */
+
+
 
 .help_tab {
 	cursor:pointer;
