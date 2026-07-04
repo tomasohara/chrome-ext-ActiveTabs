@@ -107,9 +107,9 @@ function close_type(obj) {
     if(obj.type == 'tab') {
         chrome.tabs.get(obj.id, function callback() {
             if (chrome.runtime.lastError) {
-		// OLD: //console.log(chrome.runtime.lastError.message);
+                // OLD: //console.log(chrome.runtime.lastError.message);
                 // DEBUG:
-		console.log("lastError:" + chrome.runtime.lastError.message);
+                console.log("lastError:" + chrome.runtime.lastError.message);
             } else {
                 chrome.tabs.remove(obj.id);
             }
@@ -117,9 +117,9 @@ function close_type(obj) {
     } else if (obj.type == 'window') {
         chrome.windows.get(obj.id, function callback() {
             if (chrome.runtime.lastError) {
-		// OLD: //console.log(chrome.runtime.lastError.message);		
+                // OLD: //console.log(chrome.runtime.lastError.message);                
                 // DEBUG:
-		console.log("lastError:" + chrome.runtime.lastError.message);
+                console.log("lastError:" + chrome.runtime.lastError.message);
             } else {
                 chrome.windows.remove(obj.id);
             }
@@ -150,8 +150,8 @@ function highlightTab(next) {
 
 function focusTab(el) {
     if (el && el.data) {
-	// DEBUG:
-	console.debug("focusTab: el.data=" + focusTab);
+        // DEBUG:
+        console.debug("focusTab: el.data=" + focusTab);
         // Guarantee we pass a strict integer to the Chrome API, preventing a signature mismatch TypeError.
         // note: 'selected' is deprecated in favor of 'active'
         // BAD: chrome.tabs.update(el.data('tab-id'), {selected: true});
@@ -164,7 +164,7 @@ function focusTab(el) {
         }
         catch (exc) {
             console.warn("Exception in focusTab: " + exc);
-	    // DEBUG:
+            // DEBUG:
             console.warn("el.data: " + JSON.stringify(el.data));
         }
     }
