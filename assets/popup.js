@@ -7,6 +7,7 @@
 // - Fixed TypeError in focusTab by parsing IDs as integers.
 // - Removed jQuery resize modal positioning logic to rely on modern CSS.
 // - Change via Gemini to sort the tabs, use full window, are position modal.
+// - ESLint lint-clean pass (var->const/let, ===, declared leaked vars) via Claude Opus 4.8 (July 2026)
 //
 //
 
@@ -23,7 +24,7 @@
 // var tabObj = null;
 
 function updateTab(id, property, value) {
-    var search = $('.highlight').attr('data-search');
+    let search = $('.highlight').attr('data-search');
     value = !value;
     chrome.tabs.update(id, {[property]: value});
     $('.highlight').data(property, value);
@@ -34,19 +35,20 @@ function updateTab(id, property, value) {
     }
     else
     {
-        var myregexp = new RegExp(' _'+ property, "ig");
+        const myregexp = new RegExp(' _'+ property, "ig");
         search = search.replace(myregexp, '');
     }
-    search = $('.highlight').attr('data-search', search);
+    // OLD: search = $('.highlight').attr('data-search', search);
+    $('.highlight').attr('data-search', search);
     $('.search').trigger('keyup');
 }
 
 function drawTabs() {
     $('#content').html('');
     chrome.windows.getAll({populate:true},function(windows){
-        var windowsArray = [];
+        const windowsArray = [];
         windows.forEach(function(window){
-            var winData = {id: window.id, incognito: window.incognito, tabs: []};
+            const winData = {id: window.id, incognito: window.incognito, tabs: []};
             window.tabs.forEach(function(tab){
                 winData.tabs.push({
                     id: tab.id,
@@ -74,14 +76,14 @@ function drawTabs() {
             return b.tabs.length - a.tabs.length;
         });
 
-        var html = '';
+        let html = '';
         windowsArray.forEach(function(winData) {
-            var windowId = winData.id;
-            var incog = (winData.incognito ? ' incognito' : '');
+            const windowId = winData.id;
+            const incog = (winData.incognito ? ' incognito' : '');
             html += '<div class="window'+ incog +'" data-window-id="' + windowId +'">';
             html += '<div class="toggle"><img src="assets/trash.png" class="close_window" data-tab-count="'+ winData.tabs.length +'" data-window-id="' + windowId +'" alt="" /><span class="count">'+ winData.tabs.length +'</span> tabs</div><ul>';
             winData.tabs.forEach(function(tab) {
-                var modifiers = '';
+                let modifiers = '';
                 modifiers += (tab.audio) ? ' _audio' : '';
                 modifiers += (tab.muted) ? ' _muted' : '';
                 modifiers += (tab.pinned) ? ' _pinned' : '';
@@ -104,7 +106,7 @@ function drawTabs() {
 drawTabs();
 
 function close_type(obj) {
-    if(obj.type == 'tab') {
+    if(obj.type === 'tab') {
         chrome.tabs.get(obj.id, function callback() {
             if (chrome.runtime.lastError) {
                 // OLD: //console.log(chrome.runtime.lastError.message);
@@ -114,7 +116,7 @@ function close_type(obj) {
                 chrome.tabs.remove(obj.id);
             }
         });
-    } else if (obj.type == 'window') {
+    } else if (obj.type === 'window') {
         chrome.windows.get(obj.id, function callback() {
             if (chrome.runtime.lastError) {
                 // OLD: //console.log(chrome.runtime.lastError.message);                
@@ -130,13 +132,14 @@ function close_type(obj) {
 function getTabs() { return $('li.tab:visible'); }
 
 function highlightTab(next) {
-    tabs = getTabs();
-    index = tabs.index($('.highlight'));
+    // OLD: tabs / index / next_tab were assigned without declaration (leaked globals).
+    const tabs = getTabs();
+    let index = tabs.index($('.highlight'));
 
-    next_tab = index + next;
-    if (next_tab < 0 || next_tab == tabs.length)
+    let next_tab = index + next;
+    if (next_tab < 0 || next_tab === tabs.length)
     {
-        index = (index == -1) ? 0 : (next_tab == tabs.length) ? -1 : index;
+        index = (index === -1) ? 0 : (next_tab === tabs.length) ? -1 : index;
     }
     $('.search').blur();
     $('.tab').removeClass('highlight');
@@ -151,7 +154,7 @@ function highlightTab(next) {
 function focusTab(el) {
     if (el && el.data) {
         // DEBUG:
-        console.debug("focusTab: el.data=" + focusTab);
+        console.debug("focusTab: el.data=" + el.data);
         // Guarantee we pass a strict integer to the Chrome API, preventing a signature mismatch TypeError.
         // note: 'selected' is deprecated in favor of 'active'
         // BAD: chrome.tabs.update(el.data('tab-id'), {selected: true});
@@ -195,7 +198,7 @@ $('.collapse').on('click', function(){ $('.window ul').hide(); });
 $('.search').on('keyup', function(){
     if($(this).val() !== '') {
         $('#content').addClass('filtered');
-        var val = $(this).val().toLowerCase();
+        const val = $(this).val().toLowerCase();
         $(':not(li.tab[data-search*="'+ val +'"])').addClass('hide');
         $('.tab[data-search*="'+ val +'"]').removeClass('hide');
     } else {
@@ -207,6 +210,8 @@ $('.search').on('keyup', function(){
 });
 
 $('body').on('keydown', function(e){
+    // Highlighted-tab element, set by the mute/pin cases below (was a leaked global).
+    let el;
     // OLD: //console.log(e.keyCode);
     // DEBUG: console.log("keyCode:" + e.keyCode);
     $('#help .js-modal-close, .modal-overlay').click();
@@ -235,7 +240,7 @@ $('body').on('keydown', function(e){
             { $('.js-modal-close, .modal-overlay').click(); }
             else
             {
-                var appendthis =  ('<div class="modal-overlay modal-help js-modal-close"></div>');
+                const appendthis =  ('<div class="modal-overlay modal-help js-modal-close"></div>');
 
                 $('body').append(appendthis);
                 $('body').addClass('modal help-modal');
@@ -256,7 +261,7 @@ $('body').on('click', '#help_tab_keywords th', function(){
 $(function(){
     $('.search').focus();
 
-    var appendthis =  ('<div class="modal-overlay js-modal-close"></div>');
+    const appendthis =  ('<div class="modal-overlay js-modal-close"></div>');
 
     $('body').on('click', '.close_tab', function(e){
         $('body').append(appendthis);
@@ -287,9 +292,9 @@ $(function(){
     });
 
     $('.js-modal-confirm').click(function() {
-        var data = $(this).data();
+        const data = $(this).data();
         close_type(data);
-        if (data.type =='tab'){
+        if (data.type ==='tab'){
             $('.tab[data-tab-id="'+ data.id +'"]').parent().prev().find('.count').text(
                 parseInt($('.tab[data-tab-id="'+ data.id +'"]').parent().prev().find('.count').text()) - 1
             );

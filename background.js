@@ -3,6 +3,7 @@
  *
  * note:
  * - changes via POE Assistant (June 2026)
+ * - ESLint lint-clean pass (var->const, globals via eslint.config.mjs) via Claude Opus 4.8 (July 2026)
  * - linting tips:
  *   see https://stackoverflow.com/questions/54647294/const-is-available-in-es6-use-esversion-6
  */
@@ -15,17 +16,17 @@
 // Note: workaround for jslint
 /*global chrome, console*/
 
-var countTabs = function() {
+const countTabs = function() {
     console.log("in countTabs");
     chrome.tabs.query({},function(tabs){
         chrome.action.setBadgeText( { text:tabs.length.toString() } );
     });
 };
 
-var listURLs = function() {
+const listURLs = function() {
     console.log("in listURLs");
     chrome.windows.getAll({populate:true},function(windows){
-        var tabData = [];
+        const tabData = [];
         windows.forEach(function(window){
             tabData[window.id] = [];
             window.tabs.forEach(function(tab){
@@ -61,10 +62,30 @@ chrome.tabs.onRemoved.addListener(function(tabId){
 });
 
 chrome.action.onClicked.addListener(function() {
-    console.log(`action.onClicked`);
-    chrome.tabs.create({
-        url: chrome.runtime.getURL("popup.htm")
+    // TRACE (added via Claude Opus 4.8, July 2026): diagnose ERR_FILE_NOT_FOUND
+    //   when opening the tab page. Log the resolved chrome-extension URL, probe it
+    //   with fetch (a 404 / rejection means popup.htm is missing, mis-named, or not
+    //   at the manifest root), and surface any tabs.create failure via lastError.
+    const popupURL = chrome.runtime.getURL("popup.htm");
+    console.log(`action.onClicked: popupURL=${popupURL}`);
+    fetch(popupURL).then(function(resp) {
+        console.log(`popup.htm probe: status=${resp.status} ok=${resp.ok} url=${resp.url}`);
+    }).catch(function(err) {
+        console.error(`popup.htm probe failed (file not found?): ${err}`);
+    });
+    chrome.tabs.create({ url: popupURL }, function(tab) {
+        if (chrome.runtime.lastError) {
+            console.error(`tabs.create failed: ${chrome.runtime.lastError.message} (url=${popupURL})`);
+        } else {
+            console.log(`tabs.create ok: tabId=${tab && tab.id} url=${tab && tab.url}`);
+        }
     });
 });
+
+// TRACE (added via Claude Opus 4.8): confirm at service-worker startup which page
+//   files the extension resolves to, so a load problem is visible without clicking.
+const startupManifest = chrome.runtime.getManifest();
+console.log(`background.js loaded: ${startupManifest.name} v${startupManifest.version}`);
+console.log(`extension base URL=${chrome.runtime.getURL("")}, popup=${chrome.runtime.getURL("popup.htm")}`);
 
 countTabs();

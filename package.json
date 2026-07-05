@@ -1,6 +1,13 @@
 {
+  "scripts": {
+    "lint": "eslint background.js assets/popup.js"
+  },
   "dependencies": {
     "puppeteer": "^24.43.1",
     "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.6.0"
   }
 }

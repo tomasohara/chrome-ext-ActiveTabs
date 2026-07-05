@@ -1,2 +1,12 @@
 # Packages installed via npm
 node_modules
+
+# Artifacts produced by the test harness (test_popup.js)
+#
+# Screenshot captured by Puppeteer
+test_screenshot.png
+#
+# Tesseract.js OCR language data (e.g. eng.traineddata), fetched on demand at
+# test runtime; the .gz is the compressed download it expands from
+*.traineddata
+*.traineddata.gz
