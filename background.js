@@ -48,7 +48,7 @@ const listURLs = function() {
     });
 };
 // TODO2: reference_var(listURLs);
-console.log(`listURLs=${listURLs}`);
+// DEBUG: console.log(`listURLs=${listURLs()}`);
 
 
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab){
