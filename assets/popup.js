@@ -89,8 +89,13 @@ function drawTabs() {
                 modifiers += (tab.pinned) ? ' _pinned' : '';
                 modifiers += (tab.highlighted) ? ' _highlighted' : '';
                 modifiers += (tab.incognito) ? ' _incognito' : '';
+                // BAD: 'background-image:url('+ tab.icon +')' emitted url(undefined)
+                //      when a tab had no favIconUrl, so the browser requested a file
+                //      named "undefined" and logged net::ERR_FILE_NOT_FOUND. Only set
+                //      the background-image when there is an actual icon URL.
+                const iconStyle = tab.icon ? ' style="background-image:url('+ tab.icon +');"' : '';
                 html += '<li class="tab'+ modifiers +'" data-window-id="'+ windowId +'" data-tab-id="'+ tab.id +'" data-muted="'+ tab.muted +'" data-pinned="'+ tab.pinned +'" data-search="'+ tab.title.toLowerCase() +' '+ tab.url.toLowerCase() + modifiers +'">'
-                    + '<span class="icon"><span style="background-image:url('+ tab.icon +');"></span></span>'
+                    + '<span class="icon"><span'+ iconStyle +'></span></span>'
                     + '<span class="title">'+ tab.title +'</span>'
                     + '<span class="url">'+ tab.url +'</span>'
                     + '<img src="assets/close.png" class="close_tab" data-tab-id="'+ tab.id +'" data-tab-name="'+ tab.title +'" alt="" />'
@@ -152,18 +157,30 @@ function highlightTab(next) {
 }
 
 function focusTab(el) {
-    if (el && el.data) {
+    // BAD: 'el && el.data' was always truthy for a jQuery object -- '.data' is the
+    //      jQuery method, which exists even on an empty selection. An empty set
+    //      (e.g. Enter with no highlighted tab) then fell through to
+    //      tabs.update(NaN, ...) and threw a "No matching signature" TypeError.
+    //      Require a non-empty selection instead.
+    if (el && el.length) {
         // DEBUG:
         console.debug("focusTab: el.data=" + el.data);
         // Guarantee we pass a strict integer to the Chrome API, preventing a signature mismatch TypeError.
         // note: 'selected' is deprecated in favor of 'active'
+        const tabId = parseInt(el.data('tab-id'), 10);
         // BAD: chrome.tabs.update(el.data('tab-id'), {selected: true});
-        chrome.tabs.update(parseInt(el.data('tab-id'), 10), {active: true});
+        // Skip the call when the id is missing/invalid (NaN) rather than throwing.
+        if (Number.isInteger(tabId)) {
+            chrome.tabs.update(tabId, {active: true});
+        }
         // OLD: chrome.windows.update(el.data('window-id'), {focused: true});
         try {
             // Guarantee we pass a strict integer for the windowId to avoid throwing a type mismatch exception.
             // BAD: chrome.windows.update(el.data('window-id'), {focused: true});
-            chrome.windows.update(parseInt(el.data('window-id'), 10), {focused: true});
+            const windowId = parseInt(el.data('window-id'), 10);
+            if (Number.isInteger(windowId)) {
+                chrome.windows.update(windowId, {focused: true});
+            }
         }
         catch (exc) {
             console.warn("Exception in focusTab: " + exc);
