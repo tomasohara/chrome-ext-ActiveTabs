@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "lint": "eslint background.js assets/popup.js"
+    "lint": "eslint ."
   },
   "dependencies": {
     "puppeteer": "^24.43.1",

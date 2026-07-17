@@ -8,6 +8,12 @@
 // - Removed jQuery resize modal positioning logic to rely on modern CSS.
 // - Change via Gemini to sort the tabs, use full window, are position modal.
 // - ESLint lint-clean pass (var->const/let, ===, declared leaked vars) via Claude Opus 4.8 (July 2026)
+// - Robustness pass via Claude Sonnet 5 (July 2026): guarded mute/pin (m/p) against
+//   an empty highlighted selection, escaped tab titles/urls before building HTML,
+//   handled lastError on tabs/windows update|remove calls to stop "Uncaught (in
+//   promise) Error: No tab with id: ..." from stale ids, and synced the row's
+//   _muted/_pinned class + data attrs live so the mute/pin indicators update
+//   immediately instead of only after the next redraw.
 //
 //
 
@@ -26,8 +32,25 @@
 function updateTab(id, property, value) {
     let search = $('.highlight').attr('data-search');
     value = !value;
-    chrome.tabs.update(id, {[property]: value});
+    // BAD: chrome.tabs.update(id, {...}) with no callback returns a Promise
+    //      (MV3); with nothing chaining .catch() on it, a stale id (the
+    //      highlighted tab was closed elsewhere since the list was rendered)
+    //      surfaced as "Uncaught (in promise) Error: No tab with id: ...".
+    //      Pass a callback instead so a missing tab just logs via lastError,
+    //      matching the pattern in focusTab()/close_type().
+    chrome.tabs.update(id, {[property]: value}, function() {
+        if (chrome.runtime.lastError) {
+            console.warn("updateTab: tabs.update failed: " + chrome.runtime.lastError.message);
+        }
+    });
     $('.highlight').data(property, value);
+    // BAD: only the jQuery data cache above was updated, so the row's
+    //      '_muted'/'_pinned' class and data-<property> attribute stayed
+    //      stale until the next drawTabs() redraw -- meaning the mute/pin
+    //      icons (CSS rules keyed off those classes) didn't update until the
+    //      popup was reopened. Keep the DOM in sync immediately instead.
+    $('.highlight').toggleClass('_' + property, value);
+    $('.highlight').attr('data-' + property, value);
 
     if(value)
     {
@@ -41,6 +64,17 @@ function updateTab(id, property, value) {
     // OLD: search = $('.highlight').attr('data-search', search);
     $('.highlight').attr('data-search', search);
     $('.search').trigger('keyup');
+}
+
+// Tab titles/URLs come from arbitrary web pages, not from us. Escaping them
+// before they're concatenated into the HTML string below prevents a stray
+// '"' or '<' in a page title from breaking out of an attribute/tag and
+// corrupting the rendered row (drawTabs built the markup via raw string
+// concatenation, so nothing else was escaping this).
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function(ch) {
+        return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[ch];
+    });
 }
 
 function drawTabs() {
@@ -94,11 +128,13 @@ function drawTabs() {
                 //      named "undefined" and logged net::ERR_FILE_NOT_FOUND. Only set
                 //      the background-image when there is an actual icon URL.
                 const iconStyle = tab.icon ? ' style="background-image:url('+ tab.icon +');"' : '';
-                html += '<li class="tab'+ modifiers +'" data-window-id="'+ windowId +'" data-tab-id="'+ tab.id +'" data-muted="'+ tab.muted +'" data-pinned="'+ tab.pinned +'" data-search="'+ tab.title.toLowerCase() +' '+ tab.url.toLowerCase() + modifiers +'">'
+                const safeTitle = escapeHtml(tab.title);
+                const safeUrl = escapeHtml(tab.url);
+                html += '<li class="tab'+ modifiers +'" data-window-id="'+ windowId +'" data-tab-id="'+ tab.id +'" data-muted="'+ tab.muted +'" data-pinned="'+ tab.pinned +'" data-search="'+ safeTitle.toLowerCase() +' '+ safeUrl.toLowerCase() + modifiers +'">'
                     + '<span class="icon"><span'+ iconStyle +'></span></span>'
-                    + '<span class="title">'+ tab.title +'</span>'
-                    + '<span class="url">'+ tab.url +'</span>'
-                    + '<img src="assets/close.png" class="close_tab" data-tab-id="'+ tab.id +'" data-tab-name="'+ tab.title +'" alt="" />'
+                    + '<span class="title">'+ safeTitle +'</span>'
+                    + '<span class="url">'+ safeUrl +'</span>'
+                    + '<img src="assets/close.png" class="close_tab" data-tab-id="'+ tab.id +'" data-tab-name="'+ safeTitle +'" alt="" />'
                     + '</li>';
             });
             html += '</ul></div>';
@@ -118,17 +154,28 @@ function close_type(obj) {
                 // DEBUG:
                 console.log("lastError:" + chrome.runtime.lastError.message);
             } else {
-                chrome.tabs.remove(obj.id);
+                // Same "no callback -> implicit Promise -> unhandled rejection"
+                // risk as updateTab(): the tab can still close in the gap
+                // between this get() check and remove(), so pass a callback.
+                chrome.tabs.remove(obj.id, function() {
+                    if (chrome.runtime.lastError) {
+                        console.warn("close_type: tabs.remove failed: " + chrome.runtime.lastError.message);
+                    }
+                });
             }
         });
     } else if (obj.type === 'window') {
         chrome.windows.get(obj.id, function callback() {
             if (chrome.runtime.lastError) {
-                // OLD: //console.log(chrome.runtime.lastError.message);                
+                // OLD: //console.log(chrome.runtime.lastError.message);
                 // DEBUG:
                 console.log("lastError:" + chrome.runtime.lastError.message);
             } else {
-                chrome.windows.remove(obj.id);
+                chrome.windows.remove(obj.id, function() {
+                    if (chrome.runtime.lastError) {
+                        console.warn("close_type: windows.remove failed: " + chrome.runtime.lastError.message);
+                    }
+                });
             }
         });
     }
@@ -171,7 +218,14 @@ function focusTab(el) {
         // BAD: chrome.tabs.update(el.data('tab-id'), {selected: true});
         // Skip the call when the id is missing/invalid (NaN) rather than throwing.
         if (Number.isInteger(tabId)) {
-            chrome.tabs.update(tabId, {active: true});
+            // The tab list can go stale (e.g. closed elsewhere) between render and
+            // click; check lastError the same way close_type() does so a missing
+            // tab just logs instead of leaving an "Unchecked runtime.lastError".
+            chrome.tabs.update(tabId, {active: true}, function() {
+                if (chrome.runtime.lastError) {
+                    console.warn("focusTab: tabs.update failed: " + chrome.runtime.lastError.message);
+                }
+            });
         }
         // OLD: chrome.windows.update(el.data('window-id'), {focused: true});
         try {
@@ -179,7 +233,11 @@ function focusTab(el) {
             // BAD: chrome.windows.update(el.data('window-id'), {focused: true});
             const windowId = parseInt(el.data('window-id'), 10);
             if (Number.isInteger(windowId)) {
-                chrome.windows.update(windowId, {focused: true});
+                chrome.windows.update(windowId, {focused: true}, function() {
+                    if (chrome.runtime.lastError) {
+                        console.warn("focusTab: windows.update failed: " + chrome.runtime.lastError.message);
+                    }
+                });
             }
         }
         catch (exc) {
@@ -247,8 +305,13 @@ $('body').on('keydown', function(e){
         case 83: if($('.search:not(:focus)').length){e.preventDefault();$('.tab').removeClass('highlight');} $('.search').focus(); break; //s - jump to search
 
         case 67: if($('.search:not(:focus)').length){ $('.tab.highlight .close_tab').click(); } break; //c - close tab
-        case 77: if($('.search:not(:focus)').length){ el=$('.highlight'); updateTab(el.data('tab-id'), 'muted', el.data('muted')); } break; //m - mute toggle tab
-        case 80: if($('.search:not(:focus)').length){ el=$('.highlight'); updateTab(el.data('tab-id'), 'pinned', el.data('pinned')); } break; //p - pin toggle tab
+        // BAD: calling updateTab() unconditionally on an empty '.highlight' selection
+        //      passed id=undefined through to chrome.tabs.update(), which silently
+        //      acted on the current tab (the extension's own page) instead of doing
+        //      nothing -- the same missing-guard bug fixed in focusTab(), just
+        //      failing silently instead of throwing. Require a non-empty selection.
+        case 77: if($('.search:not(:focus)').length){ el=$('.highlight'); if (el.length) { updateTab(el.data('tab-id'), 'muted', el.data('muted')); } } break; //m - mute toggle tab
+        case 80: if($('.search:not(:focus)').length){ el=$('.highlight'); if (el.length) { updateTab(el.data('tab-id'), 'pinned', el.data('pinned')); } } break; //p - pin toggle tab
 
         case 88: $('.js-modal-close, .modal-overlay').click(); break; //x - cancel
         case 191:

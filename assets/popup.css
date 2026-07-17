@@ -107,6 +107,23 @@ li.tab {
 .tab._audio .url {
 	color:#666;
 }
+
+/* Pin/mute indicators (added via Claude Sonnet 5, July 2026): only rendered
+   for tabs carrying the _pinned/_muted modifier class (drawTabs() and
+   updateTab() in assets/popup.js keep these in sync), so a plain tab shows no
+   extra clutter. The combined rule below wins on specificity when both apply,
+   so pinned+muted shows both glyphs rather than just one clobbering the other
+   (only one ::before per element). */
+.tab._pinned .title::before {
+	content: "📌 ";
+}
+.tab._muted .title::before {
+	content: "🔇 ";
+}
+.tab._pinned._muted .title::before {
+	content: "📌 🔇 ";
+}
+
 .tab.highlight {
 	background-color:#fea;
 }

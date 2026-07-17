@@ -4,6 +4,7 @@
  * note:
  * - changes via POE Assistant (June 2026)
  * - ESLint lint-clean pass (var->const, globals via eslint.config.mjs) via Claude Opus 4.8 (July 2026)
+ * - Disabled dead/buggy listURLs (unused, flagged by eslint) via Claude Sonnet 5 (July 2026)
  * - linting tips:
  *   see https://stackoverflow.com/questions/54647294/const-is-available-in-es6-use-esversion-6
  */
@@ -23,30 +24,35 @@ const countTabs = function() {
     });
 };
 
-const listURLs = function() {
-    console.log("in listURLs");
-    chrome.windows.getAll({populate:true},function(windows){
-        const tabData = [];
-        windows.forEach(function(window){
-            tabData[window.id] = [];
-            window.tabs.forEach(function(tab){
-                console.debug(`url=${tab.url}`);
-                tabData[tab.windowId].push({
-                    id: tab.id,
-                    title: tab.title,
-                    incognito: tab.incognito,
-                    url: tab.url,
-                    icon: tab.favIconUrl
-                });
-            });
-        });
-        Object.keys(tabData).forEach(function (winId) {
-            tabData[winId].forEach(function (tab) {
-                console.log(tabData[winId][tab]);
-            });
-        });
-    });
-};
+// Dead code: never invoked (drawTabs() in assets/popup.js covers listing tab
+// data instead), flagged by eslint's no-unused-vars, and buggy internally
+// (the last forEach logs tabData[winId][tab] instead of just tab). Kept
+// commented out for reference rather than deleted, per AGENTS.md.
+// OLD
+// const listURLs = function() {
+//     console.log("in listURLs");
+//     chrome.windows.getAll({populate:true},function(windows){
+//         const tabData = [];
+//         windows.forEach(function(window){
+//             tabData[window.id] = [];
+//             window.tabs.forEach(function(tab){
+//                 console.debug(`url=${tab.url}`);
+//                 tabData[tab.windowId].push({
+//                     id: tab.id,
+//                     title: tab.title,
+//                     incognito: tab.incognito,
+//                     url: tab.url,
+//                     icon: tab.favIconUrl
+//                 });
+//             });
+//         });
+//         Object.keys(tabData).forEach(function (winId) {
+//             tabData[winId].forEach(function (tab) {
+//                 console.log(tabData[winId][tab]);
+//             });
+//         });
+//     });
+// };
 // TODO2: reference_var(listURLs);
 // DEBUG: console.log(`listURLs=${listURLs()}`);
 

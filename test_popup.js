@@ -1,6 +1,6 @@
 const puppeteer = require('puppeteer');
 const Tesseract = require('tesseract.js');
-const fs = require('fs');
+// OLD: const fs = require('fs'); // unused -- screenshots are written via page.screenshot() below
 
 (async () => {
     console.log('Starting puppeteer to capture screenshot...');
