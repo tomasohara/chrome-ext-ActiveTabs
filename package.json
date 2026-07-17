@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node test_focus_tab.js && node test_tab_icon.js && node test_stale_tab_lasterror.js && node test_html_escaping.js && node test_pin_mute_indicators.js && node test_popup.js"
   },
   "dependencies": {
     "puppeteer": "^24.43.1",

@@ -114,8 +114,11 @@ export default [
         ...browserGlobals,
         process: "readonly",
         __dirname: "readonly",
+        // Standard browser global, used inside page.evaluate() callbacks.
+        getComputedStyle: "readonly",
         // Declared by assets/popup.js, invoked from inside page.evaluate().
-        focusTab: "readonly"
+        focusTab: "readonly",
+        close_type: "readonly"
       }
     }
   },
