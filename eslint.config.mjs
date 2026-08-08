@@ -7,8 +7,8 @@
 //   so it also catches any brand-new file that doesn't match either of the
 //   more specific blocks below.
 // - The "browser extension scripts" block below is scoped via `files` to
-//   background.js and assets/popup.js: the extension's classic <script>s,
-//   with chrome/jQuery/browser globals declared.
+//   background.js, assets/popup.js and assets/debug.js: the extension's classic
+//   <script>s, with chrome/jQuery/browser globals declared.
 // - The "Node test scripts" block is scoped to test_*.js: the Puppeteer
 //   regression scripts, which run under plain Node CommonJS.
 // A new .js file that isn't added to either `files` list still gets linted
@@ -62,7 +62,13 @@ const browserGlobals = {
   chrome: "readonly",
   // jQuery (vendored separately, referenced as $ / jQuery)
   $: "readonly",
-  jQuery: "readonly"
+  jQuery: "readonly",
+  // Trace-level logger from assets/debug.js, which publishes itself on
+  // globalThis; the extension's other scripts consume it as a bare global.
+  globalThis: "readonly",
+  debug: "readonly",
+  // Service workers pull in classic scripts (assets/debug.js) with this.
+  importScripts: "readonly"
 };
 
 export default [
@@ -79,7 +85,7 @@ export default [
   js.configs.recommended,
   // The extension's own scripts: classic <script>s with chrome/jQuery globals.
   {
-    files: ["background.js", "assets/popup.js"],
+    files: ["background.js", "assets/popup.js", "assets/debug.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "script",

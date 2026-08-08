@@ -14,6 +14,12 @@
 //   promise) Error: No tab with id: ..." from stale ids, and synced the row's
 //   _muted/_pinned class + data attrs live so the mute/pin indicators update
 //   immediately instead of only after the next redraw.
+// - Trace-level logging pass via Claude Code / Claude Opus 5 (July 2026): logging
+//   now goes through assets/debug.js (see its header for the level scheme and for
+//   changing the level at runtime). This re-enables the previously commented-out
+//   traces at levels that keep them out of the default console view, and fixes
+//   the focusTab trace, which stringified jQuery's .data *method* rather than the
+//   tab/window ids it was meant to report.
 //
 //
 
@@ -23,7 +29,11 @@
 // JSLint options:
 /*jslint browser, devel, node, trace, beta, bitwise, convert, eval, fart, for, getset, indent2, nomen, single, subscript, long, this, unordered, variable, white */
 // Note: workaround for jslint
-/*global chrome, console*/
+// OLD: /*global chrome, console*/
+// 'console' dropped: all output now goes through debug.trace (assets/debug.js),
+// which owns the console calls, so declaring it here just draws a no-unused-vars
+// warning.
+/*global chrome, debug*/
 
 // OLD:
 // var windowId = null;
@@ -38,9 +48,11 @@ function updateTab(id, property, value) {
     //      surfaced as "Uncaught (in promise) Error: No tab with id: ...".
     //      Pass a callback instead so a missing tab just logs via lastError,
     //      matching the pattern in focusTab()/close_type().
+    debug.trace(debug.DETAILED, `updateTab: id=${id} ${property}=${value}`);
     chrome.tabs.update(id, {[property]: value}, function() {
         if (chrome.runtime.lastError) {
-            console.warn("updateTab: tabs.update failed: " + chrome.runtime.lastError.message);
+            // OLD: console.warn("updateTab: tabs.update failed: " + chrome.runtime.lastError.message);
+            debug.trace(debug.WARNING, "updateTab: tabs.update failed: " + chrome.runtime.lastError.message);
         }
     });
     $('.highlight').data(property, value);
@@ -140,7 +152,11 @@ function drawTabs() {
             html += '</ul></div>';
         });
 
-        // DEBUG: console.debug(`html: \n${html}\n`);
+        // OLD: // DEBUG: console.debug(`html: \n${html}\n`);
+        // Re-enabled at VERBOSE: once per popup open, and the (large) markup dump
+        // is built lazily, so it costs nothing until the level is raised.
+        debug.trace(debug.VERBOSE, () => `html: \n${html}\n`);
+        debug.trace(debug.DETAILED, `drawTabs: ${windowsArray.length} windows, ${windowsArray.reduce((n, w) => n + w.tabs.length, 0)} tabs`);
         $('#content').html(html);
     });
 }
@@ -151,15 +167,16 @@ function close_type(obj) {
         chrome.tabs.get(obj.id, function callback() {
             if (chrome.runtime.lastError) {
                 // OLD: //console.log(chrome.runtime.lastError.message);
-                // DEBUG:
-                console.log("lastError:" + chrome.runtime.lastError.message);
+                // OLD: console.log("lastError:" + chrome.runtime.lastError.message);
+                debug.trace(debug.WARNING, "close_type: tabs.get lastError: " + chrome.runtime.lastError.message);
             } else {
                 // Same "no callback -> implicit Promise -> unhandled rejection"
                 // risk as updateTab(): the tab can still close in the gap
                 // between this get() check and remove(), so pass a callback.
                 chrome.tabs.remove(obj.id, function() {
                     if (chrome.runtime.lastError) {
-                        console.warn("close_type: tabs.remove failed: " + chrome.runtime.lastError.message);
+                        // OLD: console.warn("close_type: tabs.remove failed: " + chrome.runtime.lastError.message);
+                        debug.trace(debug.WARNING, "close_type: tabs.remove failed: " + chrome.runtime.lastError.message);
                     }
                 });
             }
@@ -168,12 +185,13 @@ function close_type(obj) {
         chrome.windows.get(obj.id, function callback() {
             if (chrome.runtime.lastError) {
                 // OLD: //console.log(chrome.runtime.lastError.message);
-                // DEBUG:
-                console.log("lastError:" + chrome.runtime.lastError.message);
+                // OLD: console.log("lastError:" + chrome.runtime.lastError.message);
+                debug.trace(debug.WARNING, "close_type: windows.get lastError: " + chrome.runtime.lastError.message);
             } else {
                 chrome.windows.remove(obj.id, function() {
                     if (chrome.runtime.lastError) {
-                        console.warn("close_type: windows.remove failed: " + chrome.runtime.lastError.message);
+                        // OLD: console.warn("close_type: windows.remove failed: " + chrome.runtime.lastError.message);
+                        debug.trace(debug.WARNING, "close_type: windows.remove failed: " + chrome.runtime.lastError.message);
                     }
                 });
             }
@@ -210,8 +228,11 @@ function focusTab(el) {
     //      tabs.update(NaN, ...) and threw a "No matching signature" TypeError.
     //      Require a non-empty selection instead.
     if (el && el.length) {
-        // DEBUG:
-        console.debug("focusTab: el.data=" + el.data);
+        // BAD: console.debug("focusTab: el.data=" + el.data);
+        //      '.data' is jQuery's accessor *method*, so this concatenated the
+        //      function's source text instead of the row's data -- the ids the
+        //      trace was meant to report never appeared. Read them instead.
+        debug.trace(debug.DETAILED, () => `focusTab: tab-id=${el.data('tab-id')} window-id=${el.data('window-id')}`);
         // Guarantee we pass a strict integer to the Chrome API, preventing a signature mismatch TypeError.
         // note: 'selected' is deprecated in favor of 'active'
         const tabId = parseInt(el.data('tab-id'), 10);
@@ -223,7 +244,8 @@ function focusTab(el) {
             // tab just logs instead of leaving an "Unchecked runtime.lastError".
             chrome.tabs.update(tabId, {active: true}, function() {
                 if (chrome.runtime.lastError) {
-                    console.warn("focusTab: tabs.update failed: " + chrome.runtime.lastError.message);
+                    // OLD: console.warn("focusTab: tabs.update failed: " + chrome.runtime.lastError.message);
+                    debug.trace(debug.WARNING, "focusTab: tabs.update failed: " + chrome.runtime.lastError.message);
                 }
             });
         }
@@ -235,15 +257,35 @@ function focusTab(el) {
             if (Number.isInteger(windowId)) {
                 chrome.windows.update(windowId, {focused: true}, function() {
                     if (chrome.runtime.lastError) {
-                        console.warn("focusTab: windows.update failed: " + chrome.runtime.lastError.message);
+                        // OLD: console.warn("focusTab: windows.update failed: " + chrome.runtime.lastError.message);
+                        debug.trace(debug.WARNING, "focusTab: windows.update failed: " + chrome.runtime.lastError.message);
+                    } else if (debug.getLevel() >= debug.VERBOSE) {
+                        // A successful call only means Chrome accepted the request;
+                        // the window manager can still decline to raise the window,
+                        // and that denial sets no lastError. Re-reading `focused`
+                        // shortly after distinguishes "Chrome refused" from "the WM
+                        // ignored it". Gated on the level since it costs an extra
+                        // API round-trip per click.
+                        setTimeout(function() {
+                            chrome.windows.get(windowId, function(win) {
+                                if (chrome.runtime.lastError) {
+                                    debug.trace(debug.VERBOSE, "focusTab: windows.get probe failed: " + chrome.runtime.lastError.message);
+                                } else {
+                                    debug.trace(debug.VERBOSE, `focusTab: post-check window ${windowId} focused=${win && win.focused}`);
+                                }
+                            });
+                        }, 250);
                     }
                 });
             }
         }
         catch (exc) {
-            console.warn("Exception in focusTab: " + exc);
-            // DEBUG:
-            console.warn("el.data: " + JSON.stringify(el.data));
+            // OLD: console.warn("Exception in focusTab: " + exc);
+            debug.trace(debug.ERROR, "Exception in focusTab: " + exc);
+            // BAD: console.warn("el.data: " + JSON.stringify(el.data));
+            //      Same '.data'-is-a-method confusion as above; JSON.stringify of
+            //      a function yields undefined, so this line reported nothing.
+            debug.trace(debug.VERBOSE, () => "focusTab row data: " + JSON.stringify(el.data()));
         }
     }
 }
@@ -288,7 +330,11 @@ $('body').on('keydown', function(e){
     // Highlighted-tab element, set by the mute/pin cases below (was a leaked global).
     let el;
     // OLD: //console.log(e.keyCode);
-    // DEBUG: console.log("keyCode:" + e.keyCode);
+    // OLD: // DEBUG: console.log("keyCode:" + e.keyCode);
+    // Re-enabled at QUITE_DETAILED: fires on every keystroke (including each
+    // character typed into the search box), so it must stay well above the
+    // default level -- as plain console.log it flooded the default view.
+    debug.trace(debug.QUITE_DETAILED, "keyCode:" + e.keyCode);
     $('#help .js-modal-close, .modal-overlay').click();
     if($.inArray(e.keyCode, [13, 38, 40, 67, 77, 80, 83, 88, 191]) !== -1) {
         switch(e.keyCode) {

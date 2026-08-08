@@ -31,7 +31,8 @@ This extension targets **Manifest V3** (`"manifest_version": 3` in `manifest.jso
   `assets/jquery.min.2.2.0.js` rather than pulled from a CDN.
 - **MV3 action API.** The toolbar button uses `chrome.action` (MV3), not the MV2
   `chrome.browserAction` / `chrome.pageAction`.
-- **Minimal permissions.** Only `tabs` and `favicon` are requested.
+- **Minimal permissions.** Only `tabs` and `storage` are requested. (`storage`
+  holds nothing but the debug trace level — see "Debug tracing" below.)
 
 Note on linting: `eslint.config.mjs` uses the `.mjs` extension purely so Node treats
 that single config file as an ES module when ESLint runs. It is **not** part of the
@@ -41,6 +42,45 @@ scripts remain classic scripts. Run the linter with `npm run lint`.
 ## Development
 
 The popup interface is fully contained in `popup.htm`, with styles in `assets/popup.css` and logic in `assets/popup.js`.
+
+### Debug tracing
+
+Logging goes through `assets/debug.js`, which implements numeric trace levels
+modelled on mezcla's `debug.py` (1=ERROR … 9=MOST_VERBOSE; see AGENTS.md). Each
+statement declares a level and is emitted only when the current level is at
+least that high:
+
+```js
+debug.trace(debug.DETAILED, "focusTab: tabId=" + tabId);
+debug.trace(debug.QUITE_VERBOSE, () => JSON.stringify(tab));  // lazy: only built when active
+```
+
+Pass a **function** for anything expensive to build — it is invoked only when the
+level is active, so the high-frequency tab dumps cost nothing when switched off.
+
+The level defaults to `USUAL` (3) and is changed at runtime from the DevTools
+console of *either* the page or the service worker — no reload, no code edit:
+
+```js
+debug.setLevel(7)   // show detailed I/O tracing
+debug.getLevel()
+```
+
+It is stored in `chrome.storage.local`, so the change reaches both contexts at
+once and survives a service-worker restart.
+
+Two gates keep the console readable: the numeric level decides whether a message
+is emitted, and the level also picks the console channel — levels 5+ go to
+`console.debug()`, which DevTools hides unless the **Verbose** level filter is
+enabled. That is why verbose traces can stay enabled in shipped code.
+
+Useful level assignments already in place: `onUpdated`'s full tab dump at 7,
+`countTabs`/`onRemoved`/keystroke traces at 6, the `drawTabs` markup dump at 5,
+and flow-of-control traces (`focusTab`, `updateTab`, `tabs.create`) at 4.
+
+For ad-hoc tracing with no code change at all, DevTools **logpoints**
+(right-click a line number → "Add logpoint…") and `monitor(focusTab)` in the
+page console work well alongside this.
 
 ### Testing
 To verify the popup works correctly and does not have clipping issues, you can run the automated Puppeteer test provided in `test_popup.js`.

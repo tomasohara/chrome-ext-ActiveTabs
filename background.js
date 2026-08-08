@@ -5,6 +5,12 @@
  * - changes via POE Assistant (June 2026)
  * - ESLint lint-clean pass (var->const, globals via eslint.config.mjs) via Claude Opus 4.8 (July 2026)
  * - Disabled dead/buggy listURLs (unused, flagged by eslint) via Claude Sonnet 5 (July 2026)
+ * - Trace-level logging pass via Claude Code / Claude Opus 5 (July 2026): the
+ *   unconditional console.log calls here fired on every tab event (a single page
+ *   load emits several onUpdated events, and background tabs keep emitting them),
+ *   which buried everything else in the service-worker console. They now route
+ *   through assets/debug.js at levels matched to their frequency; see that
+ *   module's header for the scheme and for how to change the level at runtime.
  * - linting tips:
  *   see https://stackoverflow.com/questions/54647294/const-is-available-in-es6-use-esversion-6
  */
@@ -15,10 +21,19 @@
 // JSLint options:
 /*jslint browser, devel, node, trace, beta, bitwise, convert, eval, fart, for, getset, indent2, nomen, single, subscript, long, this, unordered, variable, white */
 // Note: workaround for jslint
-/*global chrome, console*/
+// OLD: /*global chrome, console*/
+// 'console' dropped: see the matching note in assets/popup.js -- debug.trace
+// (assets/debug.js) now owns the console calls.
+/*global chrome, debug, importScripts*/
+
+// Trace-level logger (defines the global `debug`); must precede any debug.trace
+// call below. Service workers pull in classic scripts via importScripts().
+importScripts("assets/debug.js");
 
 const countTabs = function() {
-    console.log("in countTabs");
+    // OLD: console.log("in countTabs");
+    // Rides along on every tab event, so it is detailed-I/O material.
+    debug.trace(debug.QUITE_DETAILED, "in countTabs");
     chrome.tabs.query({},function(tabs){
         chrome.action.setBadgeText( { text:tabs.length.toString() } );
     });
@@ -58,12 +73,18 @@ const countTabs = function() {
 
 
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab){
-    console.log(`in onUpdated: tabId=${tabId}, changeInfo=${JSON.stringify(changeInfo)}, tab=${JSON.stringify(tab)}`);
+    // OLD: console.log(`in onUpdated: tabId=${tabId}, changeInfo=${JSON.stringify(changeInfo)}, tab=${JSON.stringify(tab)}`);
+    // The highest-volume trace in the extension: fires repeatedly per page load
+    // and continuously for background tabs (title/audio/favicon changes). The
+    // full-object dump is deferred into the callback so the JSON.stringify cost
+    // is only paid when the level is actually active.
+    debug.trace(debug.QUITE_VERBOSE, () => `in onUpdated: tabId=${tabId}, changeInfo=${JSON.stringify(changeInfo)}, tab=${JSON.stringify(tab)}`);
     countTabs();
 });
 
 chrome.tabs.onRemoved.addListener(function(tabId){
-    console.log(`in onRemoved: tabId=${tabId}`);
+    // OLD: console.log(`in onRemoved: tabId=${tabId}`);
+    debug.trace(debug.QUITE_DETAILED, `in onRemoved: tabId=${tabId}`);
     countTabs();
 });
 
@@ -73,25 +94,31 @@ chrome.action.onClicked.addListener(function() {
     //   with fetch (a 404 / rejection means popup.htm is missing, mis-named, or not
     //   at the manifest root), and surface any tabs.create failure via lastError.
     const popupURL = chrome.runtime.getURL("popup.htm");
-    console.log(`action.onClicked: popupURL=${popupURL}`);
-    fetch(popupURL).then(function(resp) {
-        console.log(`popup.htm probe: status=${resp.status} ok=${resp.ok} url=${resp.url}`);
-    }).catch(function(err) {
-        console.error(`popup.htm probe failed (file not found?): ${err}`);
-    });
+    debug.trace(debug.DETAILED, `action.onClicked: popupURL=${popupURL}`);
+    // Unlike a plain trace, this probe has a side effect (an extra request per
+    // click), so gate the call itself on the level rather than just its output.
+    if (debug.getLevel() >= debug.VERBOSE) {
+        fetch(popupURL).then(function(resp) {
+            debug.trace(debug.VERBOSE, `popup.htm probe: status=${resp.status} ok=${resp.ok} url=${resp.url}`);
+        }).catch(function(err) {
+            debug.trace(debug.ERROR, `popup.htm probe failed (file not found?): ${err}`);
+        });
+    }
     chrome.tabs.create({ url: popupURL }, function(tab) {
         if (chrome.runtime.lastError) {
-            console.error(`tabs.create failed: ${chrome.runtime.lastError.message} (url=${popupURL})`);
+            debug.trace(debug.ERROR, `tabs.create failed: ${chrome.runtime.lastError.message} (url=${popupURL})`);
         } else {
-            console.log(`tabs.create ok: tabId=${tab && tab.id} url=${tab && tab.url}`);
+            debug.trace(debug.DETAILED, `tabs.create ok: tabId=${tab && tab.id} url=${tab && tab.url}`);
         }
     });
 });
 
 // TRACE (added via Claude Opus 4.8): confirm at service-worker startup which page
 //   files the extension resolves to, so a load problem is visible without clicking.
+// note: once-per-startup, so USUAL keeps it visible at the default level; the
+//   URL detail is only of interest when actually chasing a load problem.
 const startupManifest = chrome.runtime.getManifest();
-console.log(`background.js loaded: ${startupManifest.name} v${startupManifest.version}`);
-console.log(`extension base URL=${chrome.runtime.getURL("")}, popup=${chrome.runtime.getURL("popup.htm")}`);
+debug.trace(debug.USUAL, `background.js loaded: ${startupManifest.name} v${startupManifest.version} (trace level ${debug.getLevel()})`);
+debug.trace(debug.DETAILED, `extension base URL=${chrome.runtime.getURL("")}, popup=${chrome.runtime.getURL("popup.htm")}`);
 
 countTabs();
